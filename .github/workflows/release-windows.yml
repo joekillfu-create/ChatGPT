@@ -49,7 +49,7 @@ jobs:
           echo "::set-output name=list::$(Get-Content bundle_list.txt -Raw)"
 
       - name: Optional code signing (if secrets provided)
-        if: ${{ secrets.RELEASE_CERT_PFX && secrets.RELEASE_CERT_PASSWORD }}
+        if: ${{ secrets.RELEASE_CERT_PFX != '' && secrets.RELEASE_CERT_PASSWORD != '' }}
         shell: powershell
         run: |
           Write-Host 'Decoding PFX from secret and writing to cert.pfx'
@@ -70,9 +70,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload release artifacts
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: src-tauri/target/release/bundle/windows/
-          asset_name: windows-bundle-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          files: src-tauri/target/release/bundle/nsis/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
