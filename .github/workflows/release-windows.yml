@@ -1,0 +1,78 @@
+name: Release Windows bundle
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    name: Build, optionally sign, and create GitHub Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Build Tauri bundle
+        run: pnpm tauri build -- --target x86_64-pc-windows-msvc
+
+      - name: Find bundle files
+        id: find
+        run: |
+          echo "Looking for bundle files..."
+          ls src-tauri/target/release/bundle -Recurse | Out-String -Width 4096 > bundle_list.txt
+          echo "::set-output name=list::$(Get-Content bundle_list.txt -Raw)"
+
+      - name: Optional code signing (if secrets provided)
+        if: ${{ secrets.RELEASE_CERT_PFX && secrets.RELEASE_CERT_PASSWORD }}
+        shell: powershell
+        run: |
+          Write-Host 'Decoding PFX from secret and writing to cert.pfx'
+          [System.IO.File]::WriteAllBytes('cert.pfx', [System.Convert]::FromBase64String($env:RELEASE_CERT_PFX))
+          # Find executables in the bundle directory and sign them
+          $files = Get-ChildItem -Path src-tauri/target/release/bundle -Recurse -Include *.exe,*.msi -File
+          foreach ($f in $files) {
+            Write-Host "Signing $($f.FullName)"
+            & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" sign /f cert.pfx /p $env:RELEASE_CERT_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 "$($f.FullName)"
+          }
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: src-tauri/target/release/bundle/windows/
+          asset_name: windows-bundle-${{ github.ref_name }}.zip
+          asset_content_type: application/zip

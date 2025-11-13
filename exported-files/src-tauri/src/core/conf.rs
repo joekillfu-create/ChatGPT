@@ -15,16 +15,6 @@ pub struct AppConf {
     pub stay_on_top: bool,
     pub ask_mode: bool,
     pub mac_titlebar_hidden: bool,
-    // Text-to-speech preferences
-    pub tts_voice_name: Option<String>,
-    pub tts_voice_lang: Option<String>,
-    pub tts_auto: bool,
-    // Visual avatar preset (e.g., "supersain")
-    pub visual_preset: Option<String>,
-    // Approved apps whitelist (keys). Edited via settings in future.
-    pub approved_apps: Vec<String>,
-    // Pending learnings (awaiting user approval)
-    pub pending_learnings: Vec<serde_json::Value>,
 }
 
 impl AppConf {
@@ -37,12 +27,6 @@ impl AppConf {
             mac_titlebar_hidden: true,
             #[cfg(not(target_os = "macos"))]
             mac_titlebar_hidden: false,
-            tts_voice_name: None,
-            tts_voice_lang: None,
-            tts_auto: false,
-            visual_preset: None,
-            approved_apps: vec!["notepad".to_string(), "calculator".to_string(), "explorer".to_string()],
-            pending_learnings: vec![],
         }
     }
 
