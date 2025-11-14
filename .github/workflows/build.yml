@@ -54,22 +54,32 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: install frontend dependencies
-        run: pnpm install
+        shell: bash
+        run: pnpm install 2>&1 | tee pnpm_install.log
 
-      - name: Build the app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: app-v__VERSION__ 
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'ChatGPT Desktop Application'
-          releaseDraft: false
-          prerelease: false
+      - name: Build frontend
+        shell: bash
+        run: pnpm build 2>&1 | tee pnpm_build.log
 
-      - name: Upload artifacts
+      - name: Build Tauri (backend + bundle)
+        shell: bash
+        run: pnpm tauri build -- --target x86_64-pc-windows-msvc 2>&1 | tee tauri_build.log
+
+      - name: Upload artifacts (exe if present)
         uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: tauri-app-${{ matrix.platform.os }}
           path: src-tauri/target/release/bundle/nsis/*.exe
+          retention-days: 30
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: build-logs
+          path: |
+            pnpm_install.log
+            pnpm_build.log
+            tauri_build.log
           retention-days: 30
