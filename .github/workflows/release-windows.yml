@@ -49,9 +49,13 @@ jobs:
           echo "::set-output name=list::$(Get-Content bundle_list.txt -Raw)"
 
       - name: Optional code signing (if secrets provided)
-        if: ${{ secrets.RELEASE_CERT_PFX != '' && secrets.RELEASE_CERT_PASSWORD != '' }}
         shell: powershell
         run: |
+          # If signing secrets are not provided, skip signing at runtime.
+          if (-not $env:RELEASE_CERT_PFX -or -not $env:RELEASE_CERT_PASSWORD) {
+            Write-Host 'Signing secrets not provided; skipping code signing.'
+            exit 0
+          }
           Write-Host 'Decoding PFX from secret and writing to cert.pfx'
           [System.IO.File]::WriteAllBytes('cert.pfx', [System.Convert]::FromBase64String($env:RELEASE_CERT_PFX))
           # Find executables in the bundle directory and sign them
